@@ -1,49 +1,49 @@
-# backend/models/traffic_state.py
+# # backend/models/traffic_state.py
 
-"""
-TrafficState
+# """
+# TrafficState
 
-Represents the entire intersection state at a specific moment.
-Contains traffic metrics for each direction as well as environmental data.
-"""
+# Represents the entire intersection state at a specific moment.
+# Contains traffic metrics for each direction as well as environmental data.
+# """
 
-from dataclasses import dataclass
-from datetime import datetime
-
-
-@dataclass
-class DirectionState :
-
-    """
-    Represents traffic metrics for one direction.
-    """
-
-    vehicle_count           : int
-    vehicle_breakdown       : dict
-    weighted_vehicle_score  : float
-    density_ratio           : float
+# from dataclasses import dataclass
+# from datetime import datetime
 
 
-class TrafficState :
+# @dataclass
+# class DirectionState :
 
-    """
-    Represents the full intersection state.
-    """
+#     """
+#     Represents traffic metrics for one direction.
+#     """
 
-    def __init__(self,
-                 north  : DirectionState,
-                 south  : DirectionState,
-                 east   : DirectionState,
-                 west   : DirectionState,
-                 temperature : float,
-                 light_intensity : float) :
+#     vehicle_count           : int
+#     vehicle_breakdown       : dict
+#     weighted_vehicle_score  : float
+#     density_ratio           : float
 
-        self.north = north
-        self.south = south
-        self.east = east
-        self.west = west
 
-        self.temperature = temperature
-        self.light_intensity = light_intensity
+# class TrafficState :
 
-        self.timestamp = datetime.now()
+#     """
+#     Represents the full intersection state.
+#     """
+
+#     def __init__(self,
+#                  north  : DirectionState,
+#                  south  : DirectionState,
+#                  east   : DirectionState,
+#                  west   : DirectionState,
+#                  temperature : float,
+#                  light_intensity : float) :
+
+#         self.north = north
+#         self.south = south
+#         self.east = east
+#         self.west = west
+
+#         self.temperature = temperature
+#         self.light_intensity = light_intensity
+
+#         self.timestamp = datetime.now()

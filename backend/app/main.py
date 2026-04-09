@@ -5,15 +5,22 @@ from flask_cors import CORS
 from flask_mqtt import Mqtt
 import json
 import os
+import time
 from datetime import datetime
-from app.services.iot_service import *
-
 from .services.ai_service import AIService
+from .services.iot_service import IOTService
+
+# Khởi tạo IOTService và kết nối Adafruit IO
+iot_service = IOTService()
+iot_service.start()
 from .services.decision_maker import DecisionMaker
 from .models.traffic_state import TrafficState, DirectionState
 
 app = Flask(__name__)
 CORS(app)
+
+iot_service = IOTService()
+iot_service.start()
 
 # ==================== CẤU HÌNH MQTT ====================
 app.config['MQTT_BROKER_URL'] = 'test.mosquitto.org'
@@ -32,7 +39,6 @@ SYSTEM_PARAMS_AUDIT_FILE = os.path.join(os.path.dirname(__file__), "system_param
 DEFAULT_SYSTEM_PARAMS = {
     "alpha": 0.6,
     "beta": 0.4,
-    "gamma": 0.2,
     "base_green_time": 10.0,
     "vehicle_weights": {
         "bicycle": 1.0, "motorcycle": 1.0,
@@ -56,7 +62,6 @@ def _merge_system_params(raw: dict | None) -> dict:
     return {
         "alpha":          float(raw.get("alpha",          DEFAULT_SYSTEM_PARAMS["alpha"])),
         "beta":           float(raw.get("beta",           DEFAULT_SYSTEM_PARAMS["beta"])),
-        "gamma":          float(raw.get("gamma",          DEFAULT_SYSTEM_PARAMS["gamma"])),
         "base_green_time": float(raw.get("base_green_time", DEFAULT_SYSTEM_PARAMS["base_green_time"])),
         "vehicle_weights": {
             k: float(weights.get(k, v))
@@ -87,20 +92,19 @@ def _save_system_params(params: dict) -> dict:
 
 
 def _validate_system_params(params: dict) -> list[str]:
-    """Kiểm tra tính hợp lệ - alpha/beta/gamma >= 0,
+    """Kiểm tra tính hợp lệ - alpha/beta >= 0,
     base_green_time trong [5, 180], weights trong [0, 20]
     => trả về danh sách lỗi."""
     errors = []
     alpha   = float(params.get("alpha", 0))
     beta    = float(params.get("beta", 0))
-    gamma   = float(params.get("gamma", 0))
     base    = float(params.get("base_green_time", 0))
     weights = params.get("vehicle_weights", {})
 
-    if alpha < 0 or beta < 0 or gamma < 0:
-        errors.append("alpha, beta, gamma must be >= 0")
-    if (alpha + beta + gamma) <= 0:
-        errors.append("alpha + beta + gamma must be > 0")
+    if alpha < 0 or beta < 0:
+        errors.append("alpha, beta must be >= 0")
+    if (alpha + beta) <= 0:
+        errors.append("alpha + beta must be > 0")
     if not (5 <= base <= 180):
         errors.append("base_green_time must be in range [5, 180] seconds")
     for key in DEFAULT_SYSTEM_PARAMS["vehicle_weights"]:
@@ -130,7 +134,6 @@ def _build_engine() -> DecisionMaker:
     return DecisionMaker(
         alpha=float(params["alpha"]),
         beta=float(params["beta"]),
-        gamma=float(params["gamma"]),
         base_time=float(params["base_green_time"]),
     )
 
@@ -163,8 +166,8 @@ def _run_decision(traffic_state: TrafficState) -> dict:
     ns = engine.decide(traffic_state, "NS")
     ew = engine.decide(traffic_state, "EW")
 
-    winner       = "NS" if ns["green_duration"] >= ew["green_duration"] else "EW"
-    light_states = engine.get_light_states(winner)
+    winner = "NS" if ns["green_duration"] >= ew["green_duration"] else "EW"
+    light_states = _get_light_states(winner)
     _publish_light_states(light_states)
 
     return {
@@ -177,6 +180,12 @@ def _run_decision(traffic_state: TrafficState) -> dict:
         },
     }
 
+def _get_light_states(winner_phase: str) -> dict:
+    """Trả về trạng thái đèn cho 4 hướng dựa trên pha thắng."""
+    if winner_phase == "NS":
+        return {"north": "green", "south": "green", "east": "red",   "west": "red"}
+    else:
+        return {"north": "red",   "south": "red",   "east": "green", "west": "green"}
 
 # ==================== MQTT CALLBACKS ====================
 
@@ -215,7 +224,7 @@ def get_traffic():
 
 @app.route('/api/system_params', methods=['GET', 'PUT'])
 def system_params():
-    """Đọc hoặc cập nhật tham số hệ thống (alpha, beta, gamma, base_green_time, vehicle_weights)."""
+    """Đọc hoặc cập nhật tham số hệ thống (alpha, beta, base_green_time, vehicle_weights)."""
     if request.method == 'GET':
         return jsonify({"status": "success", "data": _load_system_params()})
 
@@ -236,8 +245,8 @@ def system_params():
 @app.route('/api/control', methods=['POST'])
 def control_light():
     """[IoT] Thủ công đổi màu đèn 1 giao lộ, gửi lệnh MQTT ngay lập tức."""
-    data      = request.json or {}
-    inter     = data.get("intersection")
+    data = request.json or {}
+    inter = data.get("intersection")
     new_light = data.get("light")
 
     if inter not in traffic_data:
@@ -250,7 +259,7 @@ def control_light():
 
 @app.route('/api/analyze_images', methods=['POST'])
 def analyze_images():
-    """Upload 4 ảnh => AI phân tích => trả metrics (không ra quyết định)."""
+    """Upload 4 ảnh => AI phân tích => trả metrics (không ra quyết định). Chưa xài trong frontend"""
     for d in ['north', 'south', 'east', 'west']:
         if d not in request.files or request.files[d].filename == '':
             return jsonify({"status": "error", "message": f"Thiếu ảnh hướng {d}"}), 400
@@ -275,6 +284,8 @@ def run_decision_with_images():
             => DecisionMaker.decide()
             => MQTT => IoT
     """
+    # iot_service = IOTService()
+    # iot_service.start()
     for d in ['north', 'south', 'east', 'west']:
         if d not in request.files or request.files[d].filename == '':
             return jsonify({"status": "error", "message": f"Thiếu ảnh hướng {d}"}), 400
@@ -284,17 +295,63 @@ def run_decision_with_images():
     try:
         ai_results = AIService().analyze_multiple_images(images)
 
+        # Lấy dữ liệu môi trường từ cảm biến IoT thực
+        light_value, temperature_value = None, None
+        while True:
+            light_value, temperature_value = iot_service.get_sensor_data()
+            time.sleep(2)
+            if light_value is not None and temperature_value is not None:
+                break
+
+        # Fallback nếu cảm biến chưa có dữ liệu (chưa kết nối hoặc chưa gửi lần nào)
+        temperature = float(temperature_value)
+        light_intensity = float(light_value)
+    
         traffic_state = TrafficState(
             north=_direction_from_ai(ai_results.get("north", {})),
             south=_direction_from_ai(ai_results.get("south", {})),
             east =_direction_from_ai(ai_results.get("east",  {})),
             west =_direction_from_ai(ai_results.get("west",  {})),
-            temperature=30.0,       # lấy từ cảm biến IoT
-            light_intensity=800.0,  # lấy từ cảm biến IoT
+            temperature = temperature,
+            light_intensity = light_intensity,
         )
 
         response = _run_decision(traffic_state)
         response["ai_results"] = ai_results
+
+        if response['phase'] == "NS":
+            states = {
+                "A_RED": 1,
+                "A_GREEN": 0,
+                "B_RED": 1,
+                "B_GREEN": 0
+            }
+        else:
+            states = {
+                "A_RED": 0,
+                "A_GREEN": 1,
+                "B_RED": 0,
+                "B_GREEN": 1
+            }
+
+        iot_service.send_light_states(states)
+
+        # In kết quả ra terminal
+        print("\n============================== DECISION RESULT ==============================")
+        print(f"Phase winner     : {response['phase']}")
+        print(f"Green duration   : {response['green_duration']}s")
+        print(f"Light states     : {response['light_states']}")
+        print(f"NS duration      : {response['details']['NS']['duration']}s ({response['details']['NS']['color']})")
+        print(f"EW duration      : {response['details']['EW']['duration']}s ({response['details']['EW']['color']})")
+        print(f"Temperature      : {temperature}°C")
+        print(f"Light intensity  : {light_intensity} lux")
+        print("--- AI Results per direction ---")
+        for direction, result in ai_results.items():
+            print(f"  {direction.upper():5s} | vehicles: {result.get('vehicle_count', 0):3d} | "
+                  f"weighted_score: {result.get('weighted_vehicle_score', 0):6.1f} | "
+                  f"density: {result.get('density_ratio', 0):.3f}")
+        print("=============================================================================\n")
+
         return jsonify({"status": "success", "data": response})
 
     except Exception as exc:
@@ -302,40 +359,66 @@ def run_decision_with_images():
         return jsonify({"status": "error", "message": str(exc)}), 400
 
 
-# @app.route('/api/run_decision', methods=['POST'])
-# def run_decision():
-#     """
-#     Test mode - dùng khi không có camera.
-#     Dùng traffic_data hiện có thay vì ảnh thực.
-#     """
-#     inter1 = traffic_data.get("intersection_1", {})
-#     inter2 = traffic_data.get("intersection_2", {})
+@app.route('/api/manual_control', methods=['POST'])
+def manual_control():
+    """
+    Nhận lệnh manual control từ frontend.
+    FE gửi trạng thái đèn của 2 intersection.
+    Backend chỉ validate + trả response.
+    """
+    try:
+        data = request.get_json()
 
-#     def _mock_direction(vehicles: int) -> DirectionState:
-#         return DirectionState(
-#             vehicle_count=int(vehicles),
-#             vehicle_breakdown={"vehicle": int(vehicles)},
-#             weighted_vehicle_score=float(vehicles),
-#             density_ratio=min(1.0, float(vehicles) / 40),
-#         )
+        override = data.get("override", False)
+        intersection_1 = data.get("intersection_1")
+        intersection_2 = data.get("intersection_2")
 
-#     try:
-#         traffic_state = TrafficState(
-#             north=_mock_direction(int(inter1.get("vehicles", 0))),
-#             south=_mock_direction(int(inter1.get("vehicles", 0))),
-#             east =_mock_direction(int(inter2.get("vehicles", 0))),
-#             west =_mock_direction(int(inter2.get("vehicles", 0))),
-#             temperature=30.0,
-#             light_intensity=800.0,
-#         )
+        if intersection_1 not in ["green", "red"] or intersection_2 not in ["green", "red"]:
+            return jsonify({
+                "status": "error",
+                "message": "Invalid light state"
+            }), 400
 
-#         response = _run_decision(traffic_state)
-#         return jsonify({"status": "success", "data": response})
+        # Log để bạn debug
+        print("\n===== MANUAL CONTROL RECEIVED =====")
+        print("Override:", override)
+        print("Intersection 1:", intersection_1)
+        print("Intersection 2:", intersection_2)
+        print("===================================\n")
 
-#     except Exception as exc:
-#         print("run_decision error:", exc)
-#         return jsonify({"status": "error", "message": str(exc)}), 400
+        # Sau này bạn xử lý IoT tại đây
+        response_data = {
+            "override": override,
+            "intersection_1": intersection_1,
+            "intersection_2": intersection_2
+        }
 
+        if intersection_1 == 'green':
+            states = {
+                "A_RED": 1,
+                "A_GREEN": 0,
+                "B_RED": 1,
+                "B_GREEN": 0
+            }
+        else:
+            states = {
+                "A_RED": 0,
+                "A_GREEN": 1,
+                "B_RED": 0,
+                "B_GREEN": 1
+            }
+        iot_service.send_light_states(states)
+
+        return jsonify({
+            "status": "success",
+            "data": response_data
+        })
+
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 400
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

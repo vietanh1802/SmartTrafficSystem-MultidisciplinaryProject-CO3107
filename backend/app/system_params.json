@@ -1,0 +1,12 @@
+{
+  "alpha": 0.6,
+  "beta": 0.4,
+  "base_green_time": 15.0,
+  "vehicle_weights": {
+    "bicycle": 1.0,
+    "motorcycle": 1.0,
+    "car": 2.0,
+    "bus": 4.0,
+    "truck": 4.8
+  }
+}

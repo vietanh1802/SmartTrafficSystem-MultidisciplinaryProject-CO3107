@@ -1,5 +1,3 @@
-import { useMemo } from 'react'
-
 export type CameraDirection = 'north' | 'south' | 'east' | 'west'
 
 export type LightColor = 'red' | 'yellow' | 'green'
@@ -10,16 +8,19 @@ export type IntersectionTraffic = {
   last_update: string
 }
 
+// Dữ liệu AI từ detector.py cho từng hướng - optional, chỉ có sau khi bấm RUN
+export type AiDirectionData = {
+  vehicle_count: number
+  weighted_vehicle_score: number  // dùng cho PRIORITY SCORE
+  density_ratio: number           // [0, 1] từ Canny edge detection - dùng cho TRAFFIC DENSITY
+}
+
 function titleFromDirection(direction: CameraDirection) {
   switch (direction) {
-    case 'north':
-      return 'NORTH DIRECTION'
-    case 'south':
-      return 'SOUTH DIRECTION'
-    case 'east':
-      return 'EAST DIRECTION'
-    case 'west':
-      return 'WEST DIRECTION'
+    case 'north': return 'NORTH DIRECTION'
+    case 'south': return 'SOUTH DIRECTION'
+    case 'east':  return 'EAST DIRECTION'
+    case 'west':  return 'WEST DIRECTION'
   }
 }
 
@@ -29,11 +30,19 @@ type CameraCardProps = {
   imageUrl?: string | null
   onImageSelected?: (file: File) => void
   onRemoveImage?: () => void
+  aiData?: AiDirectionData | null       // từ ai_results sau khi RUN
+  greenDuration?: number | null         // từ decision.green_duration sau khi RUN
 }
 
-export function CameraCard({ direction, traffic, imageUrl, onImageSelected, onRemoveImage }: CameraCardProps) {
-  const densityPct = useMemo(() => Math.min(99, Math.round((traffic.vehicles / 25) * 100)), [traffic.vehicles])
-  const priority = useMemo(() => (densityPct > 70 ? 'HIGH' : densityPct > 40 ? 'MED' : 'LOW'), [densityPct])
+export function CameraCard({
+  direction,
+  traffic,
+  imageUrl,
+  onImageSelected,
+  onRemoveImage,
+  aiData,
+  greenDuration,
+}: CameraCardProps) {
 
   return (
     <div className="st-cam">
@@ -52,57 +61,27 @@ export function CameraCard({ direction, traffic, imageUrl, onImageSelected, onRe
               accept="image/*"
               onChange={(event) => {
                 const file = event.target.files?.[0]
-                if (file && onImageSelected) {
-                  onImageSelected(file)
-                }
+                if (file && onImageSelected) onImageSelected(file)
                 event.target.value = ''
               }}
               hidden
             />
           </label>
           {imageUrl && onRemoveImage && (
-            <button
-              type="button"
-              className="st-uploadbtn st-uploadbtn--ghost"
-              onClick={onRemoveImage}
-            >
+            <button type="button" className="st-uploadbtn st-uploadbtn--ghost" onClick={onRemoveImage}>
               Remove
             </button>
           )}
         </div>
         {imageUrl && (
           <>
-            <img
-              src={imageUrl}
-              alt={`${titleFromDirection(direction)} upload`}
-              className="st-cam__img"
-            />
+            <img src={imageUrl} alt={`${titleFromDirection(direction)} upload`} className="st-cam__img" />
             <div className="st-cam__tag">AI CAMERA FEED</div>
           </>
         )}
       </div>
 
-      <div className="st-cam__footer">
-        <div className="st-kv">
-          <div className="st-kv__k">TRAFFIC DENSITY</div>
-          <div className="st-kv__v">{densityPct}%</div>
-        </div>
-        <div className="st-kv">
-          <div className="st-kv__k">PRIORITY SCORE</div>
-          <div className={`st-kv__v ${priority === 'HIGH' ? 'st-kv__v--bad' : priority === 'MED' ? 'st-kv__v--warn' : 'st-kv__v--good'}`}>
-            {priority}
-          </div>
-        </div>
-        <div className="st-kv">
-          <div className="st-kv__k">CURRENT GREEN TIME</div>
-          <div className="st-kv__v">45s</div>
-        </div>
-        <div className="st-kv">
-          <div className="st-kv__k">PEDESTRIANS</div>
-          <div className="st-kv__v">{Math.max(0, Math.round(traffic.vehicles / 3))}</div>
-        </div>
-      </div>
+
     </div>
   )
 }
-

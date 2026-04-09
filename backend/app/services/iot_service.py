@@ -1,96 +1,136 @@
 # backend/app/services/iot_service.py
-import paho.mqtt.client as mqtt
-import json
-#from app.config import ADAFRUIT_IO_USERNAME, ADAFRUIT_IO_KEY
-# from app.config import *
-# Cấu hình các Feed
+
 import os
+import time
+import logging
 from pathlib import Path
 from dotenv import load_dotenv
+import paho.mqtt.client as mqtt
 
 
+# =======================
+# Load ENV
+# =======================
 env_path = Path(__file__).resolve().parents[2] / ".env"
 load_dotenv(env_path)
 
-ADAFRUIT_AIO_USERNAME = os.getenv("ADAFRUIT_AIO_USERNAME")
-ADAFRUIT_AIO_KEY = os.getenv("ADAFRUIT_AIO_KEY")
+USERNAME = os.getenv("ADAFRUIT_AIO_USERNAME")
+KEY = os.getenv("ADAFRUIT_AIO_KEY")
 
-FEED_CONTROL = f"{ADAFRUIT_AIO_USERNAME}/feeds/dadn.light-sensor"
-# FEED_CONTROL = f"{ADAFRUIT_AIO_USERNAME}/feeds/dadn.humid-sensor"
-FEED_A_RED = f"{ADAFRUIT_AIO_USERNAME}/feeds/dadn.led-1"
-FEED_A_GREEN = f"{ADAFRUIT_AIO_USERNAME}/feeds/dadn.led-2"
-FEED_B_RED = f"{ADAFRUIT_AIO_USERNAME}/feeds/dadn.led-3"
-FEED_B_GREEN = f"{ADAFRUIT_AIO_USERNAME}/feeds/dadn.led-4"
+if not USERNAME or not KEY:
+    raise ValueError("Missing ADAFRUIT_AIO_USERNAME or ADAFRUIT_AIO_KEY")
 
 
+# =======================
+# Feed Config (centralized)
+# =======================
+class Feeds:
+    CONTROL = f"{USERNAME}/feeds/dadn.light-sensor"
+    
+    TEMPERATURE = f"{USERNAME}/feeds/dadn.temp-sensor"
+
+    LIGHT = {
+        "A_RED": f"{USERNAME}/feeds/dadn.led-1",
+        "A_GREEN": f"{USERNAME}/feeds/dadn.led-2",
+        "B_RED": f"{USERNAME}/feeds/dadn.led-3",
+        "B_GREEN": f"{USERNAME}/feeds/dadn.led-4",
+    }
+
+
+# =======================
+# Logger
+# =======================
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("IOTService")
+
+
+# =======================
+# IOT Service
+# =======================
 class IOTService:
     def __init__(self):
         self.client = mqtt.Client()
-        self.client.username_pw_set(ADAFRUIT_AIO_USERNAME, ADAFRUIT_AIO_KEY)
-        
-        # Callback khi kết nối thành công
-        self.client.on_connect = self.on_connect
-        self.client.on_message = self.on_message
+        self.client.username_pw_set(USERNAME, KEY)
 
-    def on_connect(self, client, userdata, flags, rc):
-        print(f"Connected to Adafruit IO with result code {rc}")
-        # Subscribe để theo dõi trạng thái hiện tại nếu cần
-        self.client.subscribe(FEED_CONTROL)
+        self.client.on_connect = self._on_connect
+        self.client.on_message = self._on_message
 
-    def on_message(self, client, userdata, msg):
-        print(f"Topic: {msg.topic} - Message: {msg.payload.decode()}")
+        self.light_value = None
+        self.temperature_value = None
 
+    # ---------- Callbacks ----------
+    def _on_connect(self, client, userdata, flags, rc):
+        if rc == 0:
+            logger.info("Connected to Adafruit IO")
+            client.subscribe(Feeds.CONTROL)
+            client.subscribe(Feeds.TEMPERATURE)
+        else:
+            logger.error(f"Connection failed with code {rc}")
+
+    def _on_message(self, client, userdata, msg):
+        topic = msg.topic
+        payload = msg.payload.decode()
+
+        try:
+            value = float(payload)
+        except ValueError:
+            return
+
+        if topic == Feeds.CONTROL:
+            self.light_value = value
+
+        elif topic == Feeds.TEMPERATURE:
+            self.temperature_value = value
+
+    def get_sensor_data(self):
+        return self.light_value, self.temperature_value
+
+    # ---------- Public APIs ----------
     def start(self):
         self.client.connect("io.adafruit.com", 1883, 60)
         self.client.loop_start()
 
-    def send_traffic_command(self, state):
+    def publish(self, feed: str, value):
+        self.client.publish(feed, str(value))
+        logger.info(f"Published {value} -> {feed}")
+
+    def send_control(self, state: int):
+        """Send traffic state (0,1,2,3)"""
+        self.publish(Feeds.CONTROL, state)
+
+    def send_light_states(self, states: dict):
         """
-        Gửi lệnh trạng thái đèn (0, 1, 2, 3) xuống Adafruit
+        states = {
+            "A_RED": 0,
+            "A_GREEN": 1,
+            "B_RED": 1,
+            "B_GREEN": 0
+        }
         """
-        self.client.publish(FEED_CONTROL, str(state))
-        print(f"Sent state {state} to Adafruit IO")
-    
-    def send_humid_sensor(self, state):
-        """
-        Gửi lệnh trạng thái đèn (0, 1, 2, 3) xuống Adafruit
-        """
-        self.client.publish(FEED_CONTROL, str(state))
-        print(f"Sent state {state} to Adafruit IO")
-    
-    def send_light_states(self, states):
-        redA, greenA, redB, greenB = states
+        for key, value in states.items():
+            time.sleep(0.5)
+            feed = Feeds.LIGHT[key]
+            self.publish(feed, value)
 
-        self.client.publish(FEED_A_RED, str(redA))
-        self.client.publish(FEED_A_GREEN, str(greenA))
-        self.client.publish(FEED_B_RED, str(redB))
-        self.client.publish(FEED_B_GREEN, str(greenB))
 
-        print("Sent traffic light states:", states)
-
-# Khởi tạo instance
-iot_service = IOTService()
-# print()
-
-# Giả lập logic từ Decision Maker để bạn test
-# def mock_decision_logic(vehicle_count):
-#     """
-#     Giả lập: Nếu xe > 10 thì bật trạng thái 0 (Đường A xanh), 
-#     ngược lại bật trạng thái 2 (Đường B xanh)
-#     """
-#     if vehicle_count > 10:
-#         return 0 # State 0
-#     else:
-#         return 1 # State 2
-
-def mock_decision_logic(vehicle_a, vehicle_b):
+# =======================
+# Decision Logic (clean hơn)
+# =======================
+def decision_logic(vehicle_a: int, vehicle_b: int) -> dict:
     if vehicle_a > vehicle_b:
-        # Road A xanh
-        return (0,1,1,0)
+        return {
+            "A_RED": 0,
+            "A_GREEN": 1,
+            "B_RED": 1,
+            "B_GREEN": 0,
+        }
     else:
-        # Road B xanh
-        return (1,0,0,1)
-    
+        return {
+            "A_RED": 1,
+            "A_GREEN": 0,
+            "B_RED": 0,
+            "B_GREEN": 1,
+        }
 
 # import time
 
@@ -108,3 +148,18 @@ def mock_decision_logic(vehicle_a, vehicle_b):
 #     iot_service.send_light_states(state)
 
 #     time.sleep(2)  # giữ chương trình sống để nhận message
+
+# =======================
+# Main test
+# =======================
+if __name__ == "__main__":
+    service = IOTService()
+    service.start()
+
+    time.sleep(2)
+
+    # state = decision_logic(25, 20)
+    # service.send_light_states(state)
+    for i in range(100):
+        time.sleep(2)
+        print("Sensor data:", service.get_sensor_data())

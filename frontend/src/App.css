@@ -25,17 +25,15 @@
 }
 
 .st-appmark__logo {
-  width: 34px;
-  height: 34px;
+  width: 50px;
+  height: 50px;
   border-radius: 10px;
-  background: radial-gradient(circle at 30% 30%, rgba(77, 171, 255, 0.9), rgba(66, 211, 146, 0.3)),
-    rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+  object-fit: contain; 
 }
 
 .st-appmark__title {
-  font-size: 12px;
+  font-family: 'Sora', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  font-size: 18px;
   letter-spacing: 0.08em;
   font-weight: 700;
   text-transform: uppercase;
@@ -50,7 +48,7 @@
 
 .st-status {
   display: grid;
-  grid-template-columns: 260px 1fr 220px;
+  grid-template-columns: 260px 1fr;
   gap: 12px;
 }
 
@@ -75,6 +73,7 @@
 }
 
 .st-status__value {
+  font-family: 'Sora', 'Inter', ui-sans-serif, system-ui, sans-serif;
   font-size: 22px;
   font-weight: 800;
   margin-top: 4px;
@@ -109,6 +108,7 @@
 }
 
 .st-status__mode {
+  font-family: 'Sora', 'Inter', ui-sans-serif, system-ui, sans-serif;
   font-size: 16px;
   font-weight: 800;
   color: rgba(34, 197, 94, 0.95);
@@ -161,36 +161,6 @@
 .st-trafficlight__dot--green {
   background: #22c55e;
   opacity: 0.9;
-}
-
-.st-map {
-  height: 92px;
-  border-radius: 12px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)),
-    radial-gradient(240px 120px at 30% 35%, rgba(77, 171, 255, 0.28), transparent 62%),
-    radial-gradient(200px 140px at 80% 40%, rgba(34, 197, 94, 0.18), transparent 62%),
-    rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  position: relative;
-  overflow: hidden;
-}
-
-.st-map::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
-  background-size: 22px 22px;
-  opacity: 0.35;
-}
-
-.st-map__overlay {
-  position: absolute;
-  right: 10px;
-  top: 10px;
 }
 
 .st-pill {
@@ -256,6 +226,7 @@
 }
 
 .st-panel__title {
+  font-family: 'Sora', 'Inter', ui-sans-serif, system-ui, sans-serif;
   font-size: 12px;
   font-weight: 900;
   letter-spacing: 0.08em;
@@ -299,6 +270,11 @@
   margin-bottom: 10px;
 }
 
+.st-params {
+  display: grid;
+  gap: 6px;
+}
+
 .st-label {
   font-size: 11px;
   letter-spacing: 0.08em;
@@ -330,7 +306,7 @@
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(255, 255, 255, 0.06);
   color: rgba(255, 255, 255, 0.92);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.04em;
 }
 .st-btn:disabled {
@@ -607,6 +583,7 @@
   font-weight: 800;
 }
 .st-metric__value {
+  font-family: 'Sora', 'Inter', ui-sans-serif, system-ui, sans-serif;
   margin-top: 4px;
   font-size: 18px;
   font-weight: 900;
@@ -651,6 +628,7 @@
   text-align: center;
 }
 .st-donut__total {
+  font-family: 'Sora', 'Inter', ui-sans-serif, system-ui, sans-serif;
   font-size: 26px;
   font-weight: 1000;
 }
