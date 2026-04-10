@@ -335,7 +335,7 @@ function App() {
       </header>
 
       <main className="st-main">
-        {/* ── TOP GRID: cameras (left) + AI Decision Log (right) ── */}
+        {/* ── TOP: cameras + unified result panel (no split sidebar) ── */}
         <section className="st-grid">
           <div className="st-cameras">
             {directions.map((dir) => (
@@ -357,54 +357,50 @@ function App() {
             ))}
           </div>
 
-          {/* AI Decision Log — moved here as sidebar */}
-          <aside className="st-sidebar">
-            <div className="st-panel" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-              <div className="st-panel__header">
-                <div className="st-panel__title">AI DECISION LOG</div>
-                <button type="button" className="st-btn st-btn--ghost"
-                  onClick={handleRunDecision}
-                  disabled={isRunningDecision || status === 'loading'}>
-                  {isRunningDecision ? 'RUNNING...' : 'RUN'}
-                </button>
-              </div>
+          <div className="st-panel st-results">
+            <div className="st-panel__header">
+              <div className="st-panel__title">AI DECISION LOG</div>
+              <button type="button" className="st-btn st-btn--ghost"
+                onClick={handleRunDecision}
+                disabled={isRunningDecision || status === 'loading'}>
+                {isRunningDecision ? 'RUNNING...' : 'RUN'}
+              </button>
+            </div>
 
-              {decision && (
-                <p className="st-decision">
-                  Next green phase:{' '}
-                  <strong>{decision.phase === 'NS' ? 'NORTH & SOUTH' : 'EAST & WEST'}</strong> for{' '}
-                  <strong>{decision.green_duration.toFixed(2)}s</strong>.{' '}
-                  {decision.light_states && (
-                    <span>
-                      Lights — N: {decision.light_states.north}, S: {decision.light_states.south},{' '}
-                      E: {decision.light_states.east}, W: {decision.light_states.west}.
-                    </span>
-                  )}
-                </p>
-              )}
-
-              {decisionError && <p className="st-error">{decisionError}</p>}
-
-              <div className="st-log" style={{ flex: 1 }}>
-                {decisionLog.length === 0 ? (
-                  <div className="st-log__row">
-                    <div className="st-log__msg" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                      No decisions yet — upload 4 images and press RUN
-                    </div>
-                  </div>
-                ) : (
-                  decisionLog.map((x, i) => (
-                    <div className="st-log__row" key={i}>
-                      <div className="st-log__msg">{x.msg}</div>
-                      <div className="st-log__time">{x.t}</div>
-                    </div>
-                  ))
+            {decision && (
+              <p className="st-decision">
+                Next green phase:{' '}
+                <strong>{decision.phase === 'NS' ? 'NORTH & SOUTH' : 'EAST & WEST'}</strong> for{' '}
+                <strong>{decision.green_duration.toFixed(2)}s</strong>.{' '}
+                {decision.light_states && (
+                  <span>
+                    Lights — N: {decision.light_states.north}, S: {decision.light_states.south},{' '}
+                    E: {decision.light_states.east}, W: {decision.light_states.west}.
+                  </span>
                 )}
-              </div>
+              </p>
+            )}
 
-              <div style={{ marginTop: 12 }}>
-                <div className="st-panel__title">SENSOR HISTORY (LATEST 20)</div>
+            {decisionError && <p className="st-error">{decisionError}</p>}
 
+            <div className={`st-log st-log--compact ${decisionLog.length === 0 ? 'st-log--compact-empty' : ''}`}>
+              {decisionLog.length === 0 ? (
+                <div className="st-log__empty">
+                  No decisions yet - upload 4 images and press RUN
+                </div>
+              ) : (
+                decisionLog.map((x, i) => (
+                  <div className="st-log__row" key={i}>
+                    <div className="st-log__msg">{x.msg}</div>
+                    <div className="st-log__time">{x.t}</div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="st-results__history">
+              <div className="st-panel__title">SENSOR HISTORY (LATEST 20)</div>
+              <div className="st-log st-log--scroll">
                 {sensorLoading && (
                   <div className="st-log__row">
                     <div className="st-log__msg" style={{ color: 'rgba(255,255,255,0.6)' }}>
@@ -444,7 +440,7 @@ function App() {
                 ))}
               </div>
             </div>
-          </aside>
+          </div>
         </section>
 
         {/* ── BOTTOM: Traffic Composition + Configuration + Manual Control ── */}
