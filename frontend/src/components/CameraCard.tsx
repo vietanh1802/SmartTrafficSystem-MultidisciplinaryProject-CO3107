@@ -8,11 +8,28 @@ export type IntersectionTraffic = {
   last_update: string
 }
 
-// Dữ liệu AI từ detector.py cho từng hướng - optional, chỉ có sau khi bấm RUN
+type VehicleBreakdown = {
+  bicycle?: number
+  motorcycle?: number
+  car?: number
+  bus?: number
+  truck?: number
+  [key: string]: number | undefined
+}
+
 export type AiDirectionData = {
   vehicle_count: number
-  weighted_vehicle_score: number  // dùng cho PRIORITY SCORE
-  density_ratio: number           // [0, 1] từ Canny edge detection - dùng cho TRAFFIC DENSITY
+  vehicle_breakdown: VehicleBreakdown
+  weighted_vehicle_score: number
+  density_ratio: number
+}
+
+const VEHICLE_COLORS: Record<string, string> = {
+  car:        '#4dabff',
+  motorcycle: '#22c55e',
+  truck:      '#f59e0b',
+  bus:        '#ef4444',
+  bicycle:    '#a78bfa',
 }
 
 function titleFromDirection(direction: CameraDirection) {
@@ -28,11 +45,11 @@ type CameraCardProps = {
   direction: CameraDirection
   traffic: IntersectionTraffic
   imageUrl?: string | null
-  bboxImageUrl?: string | null          // URL ảnh có bounding box từ AI (base64)
+  bboxImageUrl?: string | null
   onImageSelected?: (file: File) => void
   onRemoveImage?: () => void
-  aiData?: AiDirectionData | null       // từ ai_results sau khi RUN
-  greenDuration?: number | null         // từ decision.green_duration sau khi RUN
+  aiData?: AiDirectionData | null
+  greenDuration?: number | null
 }
 
 export function CameraCard({
@@ -43,9 +60,12 @@ export function CameraCard({
   onImageSelected,
   onRemoveImage,
   aiData,
-  greenDuration,
 }: CameraCardProps) {
   const displayImageUrl = bboxImageUrl ?? imageUrl
+
+  const breakdownEntries = Object.entries(aiData?.vehicle_breakdown ?? {})
+    .filter(([, count]) => (count ?? 0) > 0)
+    .sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0))
 
   return (
     <div className="st-cam">
@@ -84,7 +104,48 @@ export function CameraCard({
         )}
       </div>
 
+      {/* AI metrics - chỉ hiện sau khi bấm RUN */}
+      {aiData && (
+        <div style={{
+          marginTop: 8,
+          padding: '8px 10px',
+          background: 'rgba(255,255,255,0.04)',
+          borderRadius: 6,
+          border: '1px solid rgba(255,255,255,0.08)',
+        }}>
+          {/* Vehicle count */}
+          <div style={{ marginBottom: 6 }}>
+            <span style={{ fontSize: 20, fontWeight: 600, color: '#fff', lineHeight: 1 }}>
+              {aiData.vehicle_count}
+            </span>
+            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', marginLeft: 5 }}>
+              vehicles detected
+            </span>
+          </div>
 
+          {/* Breakdown tags */}
+          {breakdownEntries.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 6px' }}>
+              {breakdownEntries.map(([type, count]) => (
+                <span key={type} style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  fontSize: 11,
+                  color: 'rgba(255,255,255,0.75)',
+                  background: 'rgba(255,255,255,0.06)',
+                  borderRadius: 4,
+                  padding: '2px 7px',
+                  borderLeft: `2px solid ${VEHICLE_COLORS[type] ?? '#888'}`,
+                }}>
+                  <span style={{ textTransform: 'capitalize' }}>{type}</span>
+                  <strong style={{ color: '#fff' }}>{count}</strong>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

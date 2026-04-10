@@ -1,4 +1,4 @@
-/* Dark dashboard theme (inspired by provided design) */
+/* Dark dashboard theme*/
 
 .st-page {
   min-height: 100vh;
@@ -714,4 +714,115 @@
   .st-cameras {
     grid-template-columns: 1fr;
   }
+}
+/* -- Nav sidebar layout -- */
+.st-app-layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+.st-nav {
+  width: 220px;
+  flex-shrink: 0;
+  border-right: 1px solid rgba(255,255,255,0.07);
+  display: flex;
+  flex-direction: column;
+  padding: 20px 0;
+  background: rgba(255,255,255,0.02);
+}
+
+.st-nav__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 20px 24px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  margin-bottom: 16px;
+}
+
+.st-nav__brand-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+}
+
+.st-nav__brand-name {
+  font-size: 15px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.85);
+  letter-spacing: 0.01em;
+}
+
+.st-nav__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  margin: 1px 8px;
+  border-radius: 8px;
+  border: none;
+  background: none;
+  color: rgba(255,255,255,0.45);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+  width: calc(100% - 16px);
+  letter-spacing: 0.01em;
+}
+
+.st-nav__item:hover {
+  background: rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.75);
+}
+
+.st-nav__item--active {
+  background: rgba(77,171,255,0.12);
+  color: #4dabff;
+  font-weight: 500;
+}
+
+.st-nav__item-icon {
+  width: 16px;
+  height: 16px;
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+
+.st-nav__item--active .st-nav__item-icon {
+  opacity: 1;
+}
+
+.st-content {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* -- Override st-page inside st-content to remove min-height conflict -- */
+.st-content .st-page {
+  min-height: unset;
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* -- st-content scrolls independently -- */
+.st-content {
+  overflow-y: auto;
+  height: 100vh;
+}
+
+/* -- app layout fills full viewport -- */
+.st-app-layout {
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* -- nav sidebar scrolls if needed -- */
+.st-nav {
+  height: 100vh;
+  overflow-y: auto;
+  position: sticky;
+  top: 0;
 }

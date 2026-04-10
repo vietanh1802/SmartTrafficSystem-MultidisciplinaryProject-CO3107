@@ -201,6 +201,8 @@ def handle_connect(client, userdata, flags, rc):
 
 @mqtt.on_message()
 def handle_mqtt_message(client, userdata, message):
+    if 'command' in message.topic:
+        return
     try:
         data  = json.loads(message.payload.decode())
         inter = data.get("intersection", "intersection_1")
