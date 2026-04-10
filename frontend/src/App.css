@@ -200,7 +200,7 @@
 
 .st-grid {
   display: grid;
-  grid-template-columns: 1fr 360px;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
   gap: 14px;
   align-items: start;
 }
@@ -241,6 +241,12 @@
   justify-content: space-between;
   gap: 10px;
   margin-bottom: 8px;
+}
+
+.st-panel__header .st-btn {
+  width: auto;
+  min-width: 150px;
+  flex-shrink: 0;
 }
 
 .st-accordion {
@@ -666,6 +672,71 @@
   display: grid;
   gap: 10px;
 }
+
+.st-log--compact {
+  margin-bottom: 12px;
+}
+
+.st-log--scroll {
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.st-results__history {
+  margin-top: 4px;
+}
+
+.st-results {
+  max-height: min(72vh, 760px);
+  display: flex;
+  flex-direction: column;
+}
+
+.st-results .st-log--compact {
+  max-height: 140px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.st-results .st-log--compact-empty {
+  max-height: none;
+  overflow: visible;
+  padding-right: 0;
+}
+
+.st-log__empty {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+  padding: 2px 2px 0;
+}
+
+.st-results__history {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.st-results__history .st-log--scroll {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+}
+
+.st-log--scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.st-log--scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+}
+
+.st-log--scroll::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 999px;
+}
 .st-log__row {
   display: flex;
   justify-content: space-between;
@@ -674,16 +745,21 @@
   background: rgba(0, 0, 0, 0.18);
   border: 1px solid rgba(255, 255, 255, 0.1);
   padding: 10px;
+  min-width: 0;
 }
 .st-log__msg {
   font-size: 12px;
   font-weight: 700;
   color: rgba(255, 255, 255, 0.82);
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .st-log__time {
   font-size: 12px;
   color: rgba(255, 255, 255, 0.55);
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .st-decision {
