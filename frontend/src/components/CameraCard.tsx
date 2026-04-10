@@ -28,6 +28,7 @@ type CameraCardProps = {
   direction: CameraDirection
   traffic: IntersectionTraffic
   imageUrl?: string | null
+  bboxImageUrl?: string | null          // URL ảnh có bounding box từ AI (base64)
   onImageSelected?: (file: File) => void
   onRemoveImage?: () => void
   aiData?: AiDirectionData | null       // từ ai_results sau khi RUN
@@ -38,11 +39,13 @@ export function CameraCard({
   direction,
   traffic,
   imageUrl,
+  bboxImageUrl,
   onImageSelected,
   onRemoveImage,
   aiData,
   greenDuration,
 }: CameraCardProps) {
+  const displayImageUrl = bboxImageUrl ?? imageUrl
 
   return (
     <div className="st-cam">
@@ -73,10 +76,10 @@ export function CameraCard({
             </button>
           )}
         </div>
-        {imageUrl && (
+        {displayImageUrl && (
           <>
-            <img src={imageUrl} alt={`${titleFromDirection(direction)} upload`} className="st-cam__img" />
-            <div className="st-cam__tag">AI CAMERA FEED</div>
+            <img src={displayImageUrl} alt={`${titleFromDirection(direction)} upload`} className="st-cam__img" />
+            <div className="st-cam__tag">{bboxImageUrl ? 'AI BBOX VIEW' : 'AI CAMERA FEED'}</div>
           </>
         )}
       </div>

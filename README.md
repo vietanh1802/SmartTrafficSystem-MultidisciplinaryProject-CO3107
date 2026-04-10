@@ -1,147 +1,172 @@
-# Project Architecture
+# Smart Traffic System (CO3107)
 
-## 1. Overall Folder Structure
+Smart Traffic System la he thong dieu khien den giao thong thong minh, ket hop:
 
+- AI vehicle detection (YOLO)
+- Decision making cho pha den NS/EW
+- IoT sensor va dieu khien den (Adafruit IO + MQTT)
+- Dashboard frontend (React + Vite)
+- MongoDB Atlas de luu sensor history
+
+## 1. Kien truc thu muc
+
+```text
+Smart-Traffic-System---Multidisciplinary-Project-CO3107-/
+|- backend/        # Flask API + MQTT + MongoDB
+|- frontend/       # React + TypeScript + Vite dashboard
+|- ai_module/      # Detector va logic AI
+|- data/           # Anh test, log data
+|- iot/            # Firmware ESP32
+|- yolov8m.pt      # Model su dung cho detector
 ```
-art-traffic-system/
-├── backend/ # FastAPI server (Python)
-├── frontend/ # ReactJS dashboard (JavaScript/TypeScript)
-├── iot/ # ESP32/Gateway firmware (C++/Python)
-├── ai_module/ # YOLO model and image processing scripts
-├── data/ # Sample dataset and documentation
-└── docker-compose.yml # Optional: run the entire system with Docker
+
+## 2. Cong nghe chinh
+
+- Backend: Flask, Flask-MQTT, PyMongo, OpenCV, Ultralytics
+- Frontend: React 19, TypeScript, Vite, Axios
+- Database: MongoDB Atlas
+- IoT: Adafruit IO (MQTT)
+
+## 3. Yeu cau moi truong
+
+- Python 3.10+
+- Node.js 18+
+- npm
+- Tai khoan MongoDB Atlas
+- Tai khoan Adafruit IO
+
+## 3.1 Quy uoc requirements
+
+- Chi dung 1 file duy nhat: `requirements.txt` o root.
+
+Khuyen nghi install:
+
+- Neu chay backend: `pip install -r requirements.txt` tu root hoac `pip install -r ../requirements.txt` trong `backend/`
+- Neu chay script AI doc lap: cung dung `pip install -r requirements.txt` tu root
+
+## 4. Backend setup
+
+Di chuyen vao backend:
+
+```bash
+cd backend
 ```
----
 
-## 2. Backend Module (FastAPI + MongoDB)
+Cai dependencies:
 
-The backend acts as the central controller of the system, coordinating data flow between AI, IoT devices, and the frontend dashboard.
+```bash
+pip install -r ../requirements.txt
+```
 
-### Core Files
+### 4.1 Tao file .env trong backend
 
-- **main.py**  
-  Initializes the FastAPI application, connects to the database, and defines primary API routes.
+Tao file `backend/.env` voi noi dung mau:
 
-- **config.py**  
-  Stores environment-based configuration values (.env), such as:
-  - MongoDB URI  
-  - Adafruit IO key  
-  - YOLO model path  
+```env
+MONGODB_URI=mongodb+srv://<user>:<password>@<cluster-url>/traffic_system?retryWrites=true&w=majority&appName=Cluster0
+MONGODB_DB=traffic_system
+MONGODB_SENSOR_COLLECTION=sensor_history
 
-- **database.py**  
-  Configures the Motor client (MongoDB async driver for Python).
+ADAFRUIT_AIO_USERNAME=<your_adafruit_username>
+ADAFRUIT_AIO_KEY=<your_adafruit_key>
+```
 
-### Folder Structure
+Luu y:
 
-- **models/**  
-  Defines Pydantic schemas for data validation and serialization.  
-  Examples:
-  - `TrafficLog`
-  - `SensorData`
+- Khong commit `.env`
+- Neu password Mongo co ky tu dac biet, can URL encode
 
-- **services/**  
-  Contains business logic and system integration modules:
+### 4.2 Kiem tra ket noi MongoDB Atlas
 
-  - `ai_service.py`  
-    Receives images from the frontend and invokes the YOLO model for vehicle detection and counting.
+```bash
+python -c "from app.database import check_mongodb_connection; ok, err = check_mongodb_connection(); print('MongoDB OK' if ok else f'MongoDB FAIL: {err}')"
+```
 
-  - `iot_service.py`  
-    Implements the MQTT client to send and receive data from Adafruit IO.
+### 4.3 Chay backend
 
-  - `decision_maker.py`  
-    Contains the traffic light timing algorithm based on:
-    - AI vehicle counts
-    - Sensor data (e.g., temperature, light)
+```bash
+python -m app.main
+```
 
-- **routes/**  
-  Modular API endpoints, for example:
-  - `/camera`
-  - `/sensors`
-  - `/control`
+Mac dinh backend chay tai:
 
----
+```text
+http://127.0.0.1:5000
+```
 
-## 3. Frontend Module (ReactJS)
+## 5. Frontend setup
 
-The frontend provides real-time monitoring and manual control capabilities.
+Di chuyen vao frontend:
 
-### API Layer
+```bash
+cd frontend
+```
 
-- **src/api/**  
-  Contains Axios or Fetch configurations for communicating with the FastAPI backend.
+Cai packages:
 
-### Components
+```bash
+npm install
+```
 
-- **CameraView.js**  
-  Displays image or video streams with AI-generated bounding boxes.
+Tao `frontend/.env` (neu can doi URL backend):
 
-- **TrafficChart.js**  
-  Visualizes vehicle density using Chart.js or Recharts.
+```env
+VITE_BACKEND_URL=http://127.0.0.1:5000
+```
 
-- **SensorPanel.js**  
-  Displays real-time sensor data such as temperature and light intensity.
+Chay frontend:
 
-- **ManualControl.js**  
-  Provides manual override buttons for traffic light states.
+```bash
+npm run dev
+```
 
-### State Management
+## 6. Luong chinh
 
-- **src/hooks/**  
-  Custom React hooks for managing:
-  - WebSocket connections  
-  - Long polling  
-  - Real-time state synchronization  
+1. Upload 4 anh (north/south/east/west) tu frontend
+2. Backend goi AI detector
+3. AI tra vehicle metrics + anh annotated (co bounding box)
+4. Backend lay sensor data IoT (co fallback neu IoT chua co data)
+5. Backend chay decision maker, publish den qua MQTT
+6. Backend luu sensor history vao MongoDB Atlas
+7. Frontend hien thi ket qua decision + bbox + 20 sensor records moi nhat
 
----
+## 7. API chinh
 
-## 4. AI Module (`ai_module/`)
+- `GET /api/traffic`
+- `GET /api/system_params`
+- `PUT /api/system_params`
+- `POST /api/control`
+- `POST /api/manual_control`
+- `POST /api/analyze_images`
+- `POST /api/run_decision_with_images`
+- `GET /api/sensor_history?limit=20`
 
-Responsible for vehicle detection and traffic analysis.
+## 8. Test nhanh API decision (PowerShell)
 
-### Structure
+```powershell
+$uri = "http://127.0.0.1:5000/api/run_decision_with_images"
 
-- **models/**  
-  Stores trained YOLO model files, such as:
-  - `yolov8n.pt`
-  - `best.pt`
+$form = @{
+  north = Get-Item "D:\path\to\north.jpg"
+  south = Get-Item "D:\path\to\south.jpg"
+  east  = Get-Item "D:\path\to\east.jpg"
+  west  = Get-Item "D:\path\to\west.jpg"
+}
 
-- **detector.py**  
-  Contains the `TrafficDetector` class.  
-  - **Input:** Image  
-  - **Output:** JSON containing vehicle count and detection metadata  
+$res = Invoke-RestMethod -Method Post -Uri $uri -Form $form
+$res | ConvertTo-Json -Depth 10
+```
 
-- **test_ai.py**  
-  Standalone script to test the AI model on a local image before integrating with the backend API.
+## 9. Test nhanh sensor history
 
----
+```powershell
+$uri = "http://127.0.0.1:5000/api/sensor_history?limit=20"
+$res = Invoke-RestMethod -Method Get -Uri $uri
+$res | ConvertTo-Json -Depth 10
+```
 
-## 5. Data Folder (`data/`)
+## 10. Ghi chu bao mat
 
-Used for storing sample datasets and intermediate outputs.
-
-- **raw/**  
-  Raw traffic images (e.g., collected from Kaggle) for testing.
-
-- **processed/**  
-  Images after drawing bounding boxes for frontend visualization.
-
-- **traffic_log.csv**  
-  Temporary storage for vehicle count results when MongoDB is not yet configured.
-
----
-
-## 6. IoT Module (`iot/`)
-
-Contains firmware and configuration for hardware devices.
-
-### firmware/
-
-- **main.ino**  
-  Main firmware code for ESP32.
-
-- **config.h**  
-  Stores sensitive configuration:
-  - WiFi credentials  
-  - Adafruit IO key  
-
-  This file should be added to `.gitignore` to ensure security.
+- Da tung co truong hop lo Mongo password trong terminal/chat. Hay rotate password Atlas neu can.
+- Whitelist IP trong Mongo Atlas dung muc dich dev/test, tranh mo rong 0.0.0.0/0 khi khong can thiet.
+- Khong commit thong tin nhay cam vao repo (`.env`, API keys).

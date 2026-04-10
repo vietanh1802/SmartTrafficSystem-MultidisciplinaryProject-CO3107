@@ -6,7 +6,7 @@ from flask_mqtt import Mqtt
 import json
 import os
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from .services.ai_service import AIService
 from .services.iot_service import IOTService
 
@@ -15,6 +15,10 @@ iot_service = IOTService()
 iot_service.start()
 from .services.decision_maker import DecisionMaker
 from .models.traffic_state import TrafficState, DirectionState
+
+# Datebase, history service
+from .database import init_mongodb, check_mongodb_connection
+from .services.history_service import save_sensor_history, get_sensor_collection
 
 app = Flask(__name__)
 CORS(app)
@@ -295,15 +299,35 @@ def run_decision_with_images():
     try:
         ai_results = AIService().analyze_multiple_images(images)
 
-        # Lấy dữ liệu môi trường từ cảm biến IoT thực
+        # Lấy dữ liệu môi trường từ IoT trong thời gian giới hạn.
+        # Nếu IoT chưa có dữ liệu, dùng fallback để API không bị treo vô hạn.
         light_value, temperature_value = None, None
-        while True:
+        sensor_source = "run_decision_with_images_iot"
+        wait_timeout_seconds = 10
+        poll_interval_seconds = 1
+        started_at = time.time()
+
+        while (time.time() - started_at) < wait_timeout_seconds:
             light_value, temperature_value = iot_service.get_sensor_data()
-            time.sleep(2)
             if light_value is not None and temperature_value is not None:
                 break
+            time.sleep(poll_interval_seconds)
 
-        # Fallback nếu cảm biến chưa có dữ liệu (chưa kết nối hoặc chưa gửi lần nào)
+        if light_value is None or temperature_value is None:
+            sensor_source = "run_decision_with_images_fallback"
+            try:
+                light_value = float(request.form.get("light_intensity", 0.0))
+            except (TypeError, ValueError):
+                light_value = 0.0
+            try:
+                temperature_value = float(request.form.get("temperature", 30.0))
+            except (TypeError, ValueError):
+                temperature_value = 30.0
+            print(
+                f"IoT sensor data unavailable after {wait_timeout_seconds}s. "
+                f"Using fallback values: light={light_value}, temp={temperature_value}"
+            )
+
         temperature = float(temperature_value)
         light_intensity = float(light_value)
     
@@ -316,8 +340,20 @@ def run_decision_with_images():
             light_intensity = light_intensity,
         )
 
+        # Save sensor history
+        sensor_history = None
+        try:
+            sensor_history = save_sensor_history(
+                light_intensity = light_intensity, 
+                temperature = temperature, 
+                source=sensor_source)
+            print("sensor_history saved:", sensor_history)
+        except Exception as db_exc:
+            print("Error saving sensor history:", db_exc)
+
         response = _run_decision(traffic_state)
         response["ai_results"] = ai_results
+        response["sensor_history"] = sensor_history
 
         if response['phase'] == "NS":
             states = {
@@ -419,6 +455,40 @@ def manual_control():
             "status": "error",
             "message": str(e)
         }), 400
+
+
+@app.route('/api/sensor_history', methods=['GET'])
+def get_sensor_history():
+    try:
+        limit = request.args.get('limit', default=20, type=int)
+        if limit <= 0:
+            limit = 20
+        if limit > 100:
+            limit = 100
+
+        collection = get_sensor_collection()
+        docs = list(
+            collection.find({})
+            .sort("created_at", -1)
+            .limit(limit)
+        )
+
+        items = []
+        for d in docs:
+            created_at = d.get("created_at")
+            if created_at and created_at.tzinfo is None:
+                created_at = created_at.replace(tzinfo=timezone.utc)
+            items.append({
+                "id": str(d.get("_id")),
+                "light_intensity": float(d.get("light_intensity", 0)),
+                "temperature": float(d.get("temperature", 0)),
+                "source": d.get("source", "unknown"),
+                "created_at": created_at.isoformat() if created_at else None,
+            })
+
+        return jsonify({"status": "success", "data": items})
+    except Exception as exc:
+        return jsonify({"status": "error", "message": str(exc)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

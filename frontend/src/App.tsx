@@ -5,6 +5,7 @@ import { CameraCard, type CameraDirection } from './components/CameraCard'
 import { DonutChart } from './components/DonutChart'
 import { Pill } from './components/Pill'
 import { useTrafficApi } from './hooks/useTrafficApi'
+import { useSensorData } from './hooks/useSensorData'
 import logo from './assets/logo.png'
 
 const directions: CameraDirection[] = ['north', 'south', 'east', 'west']
@@ -22,10 +23,10 @@ type VehicleBreakdown = {
 }
 
 type AiResults = {
-  north: { vehicle_count: number; vehicle_breakdown: VehicleBreakdown; weighted_vehicle_score: number; density_ratio: number }
-  south: { vehicle_count: number; vehicle_breakdown: VehicleBreakdown; weighted_vehicle_score: number; density_ratio: number }
-  east:  { vehicle_count: number; vehicle_breakdown: VehicleBreakdown; weighted_vehicle_score: number; density_ratio: number }
-  west:  { vehicle_count: number; vehicle_breakdown: VehicleBreakdown; weighted_vehicle_score: number; density_ratio: number }
+  north: { vehicle_count: number; vehicle_breakdown: VehicleBreakdown; weighted_vehicle_score: number; density_ratio: number; annotated_image_base64?: string }
+  south: { vehicle_count: number; vehicle_breakdown: VehicleBreakdown; weighted_vehicle_score: number; density_ratio: number; annotated_image_base64?: string }
+  east:  { vehicle_count: number; vehicle_breakdown: VehicleBreakdown; weighted_vehicle_score: number; density_ratio: number; annotated_image_base64?: string}
+  west:  { vehicle_count: number; vehicle_breakdown: VehicleBreakdown; weighted_vehicle_score: number; density_ratio: number; annotated_image_base64?: string }
 }
 
 type DecisionResult = {
@@ -80,6 +81,10 @@ function App() {
   const { data, status, lastUpdatedAt, changeLight } = useTrafficApi({
     baseUrl: backendUrl,
     pollMs: 4000,
+  })
+  const { items: sensorHistory, loading: sensorLoading, error: sensorError } = useSensorData({
+    limit: 20,
+    pollMs: 5000,
   })
 
   const [overrideAutomatic, setOverrideAutomatic] = useState(false)
@@ -343,6 +348,11 @@ function App() {
                 onRemoveImage={() => handleRemoveImage(dir)}
                 aiData={decision?.ai_results?.[dir] ?? null}
                 greenDuration={decision?.green_duration ?? null}
+                bboxImageUrl={
+                  decision?.ai_results?.[dir]?.annotated_image_base64
+                    ? "data:image/jpeg;base64," + decision.ai_results[dir].annotated_image_base64
+                    : null
+                }
               />
             ))}
           </div>
@@ -390,6 +400,48 @@ function App() {
                     </div>
                   ))
                 )}
+              </div>
+
+              <div style={{ marginTop: 12 }}>
+                <div className="st-panel__title">SENSOR HISTORY (LATEST 20)</div>
+
+                {sensorLoading && (
+                  <div className="st-log__row">
+                    <div className="st-log__msg" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                      Loading sensor history...
+                    </div>
+                  </div>
+                )}
+
+                {sensorError && (
+                  <div className="st-log__row">
+                    <div className="st-log__msg st-error">{sensorError}</div>
+                  </div>
+                )}
+
+                {!sensorLoading && !sensorError && sensorHistory.length === 0 && (
+                  <div className="st-log__row">
+                    <div className="st-log__msg" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                      No sensor history yet
+                    </div>
+                  </div>
+                )}
+
+                {!sensorLoading && !sensorError && sensorHistory.map((s) => (
+                  <div className="st-log__row" key={s.id}>
+                    <div className="st-log__msg">
+                      Lux: {s.light_intensity.toFixed(1)} | Temp: {s.temperature.toFixed(1)}°C | {s.source}
+                    </div>
+                    <div className="st-log__time">
+                      {s.created_at
+                        ? new Date(s.created_at).toLocaleString('vi-VN', {
+                            timeZone: 'Asia/Ho_Chi_Minh',
+                            hour12: false,
+                          })
+                        : '--:--:--'}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </aside>
