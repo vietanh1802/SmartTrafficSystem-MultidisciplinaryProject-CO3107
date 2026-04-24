@@ -7,8 +7,8 @@ Determines how long the current traffic light phase should remain green.
 
 The system assumes two fixed phases:
 
-Phase NS → north and south
-Phase EW → east and west
+Phase NS -> north and south
+Phase EW -> east and west
 
 Enhancements implemented
 ------------------------
